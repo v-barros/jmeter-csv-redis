@@ -9,7 +9,7 @@ void writeToFile(const char *filename, const char *content) {
     FILE *file = fopen(filename, "w");
 
     if (file == NULL) {
-        fprintf(stderr, "Error opening file\n");
+        fprintf(stdout, "Error opening file\n");
         return;
     }
 
@@ -25,25 +25,26 @@ void removeFileExtension(char * filename){
     *extension='\0';
 }
 
+/*  saveJMX("mytest.jmx", file_content) 
+    creates a new file called mytest-temp.jmx and print it's name in stdout
+*/
 void saveJMX(char * jmxFilename, char * content){
     
     removeFileExtension(jmxFilename);
-
     char filenameTemp[1000];
     strcpy(filenameTemp,jmxFilename);
     strcat(filenameTemp,"-temp.jmx");
     writeToFile(filenameTemp,content);
     printf("\n%s\n",filenameTemp);
-
 }
 
+/*given an input and a regex match, returns a new (malloc'ed) char * containing the matching substring*/
 char * getMatchingString(const char *input, regmatch_t *match) {
-
+    
     if (match->rm_so != -1 && match->rm_eo != -1) {
         int len = match->rm_eo-match->rm_so;
         char * s = (char *) malloc(sizeof(char)*len+1);
         assert(s);
-        //printf("%p\n", s);
         int l=0;
         for (int i = match->rm_so; i < match->rm_eo; ++i,l++) {
             s[l]=input[i];
@@ -70,7 +71,7 @@ FILE *openFile(const char *filename, const char *mode) {
     FILE *file = fopen(filename, mode);
 
     if (file == NULL) {
-        fprintf(stderr, "Error opening file\n");
+        fprintf(stdout, "Error opening file: %s\n",filename);
     }
 
     return file;
@@ -108,25 +109,37 @@ char *readFileToString(const char *filename) {
     return fileContent;
 }
 
-int countMatches( regex_t * regex,
-		    char *_String, size_t __nmatch,
-		    regmatch_t *__pmatch,int *_offset){
+int countMatchesCSV(char *_String,int *_offset){
+    // Variable to store initial regex()
+    regex_t reegexCSV;
+
+    // Variable for return type
+    int value;
+    regmatch_t match;
+    // Creation of regEx
+
+    if(regcomp(&reegexCSV,"<CSVDataSet.{0,1000}?<\\/CSVDataSet>",REG_EXTENDED)!=0)
+        return 1;
+
     int offset=0,matches=0;
-    while (regexec(regex, _String + offset, __nmatch, __pmatch, 0) == 0) {
-            matches++;
+    while (regexec(&reegexCSV, _String + offset, 1, &match, 0) == 0) {
+        matches++;
             
-            // Print the matching string
-           // printf("Match at offset %d:\n", offset + (*__pmatch).rm_so);
-            //printMatchingString(_String + offset,__pmatch);
+        // Print the matching string
+        //printf("Match at offset %d:\n", offset + (*__pmatch).rm_so);
+        //printMatchingString(_String + offset,__pmatch);
 
-            // Move the offset to the end of the current match
-            offset += (*__pmatch).rm_eo;
+        // Move the offset to the end of the current match
+        offset += match.rm_eo;
 
-            if(matches==1) *_offset=offset;
-            // Break the loop if there are no more matches
-            if ((*__pmatch).rm_so == -1) {
-                break;
-            }
+        //returning the offset to the main function so we know the size of the 'steps' when looking for multiple matches.
+        if(matches==1) 
+            *_offset=offset; 
+        
+        // Break the loop if there are no more matches
+        if (match.rm_so == -1) {
+            break;
+        }
 
     }
     return matches;
@@ -149,29 +162,26 @@ void getVariables(char *input,char ** _filename,char ** _ignoreFirstLine,char **
 
     int offset=0,matches=0;
     if(regexec(&reegexFilename, input, 2, match, 0) == 0){
-       // printMatchingString(input,&match[1]);
-        
-
        // printf("%p\n",getMatchingString(input,&match[1]));
        *_filename = getMatchingString(input,&match[1]);
-      // printf("FILENAME%s\n",*_filename);
     }
     if(regexec(&reegexIgnoreFirstLine, input, 2, match, 0) == 0){
-       // printMatchingString(input,&match[1]);
       //  printf("%s\n",getMatchingString(input,&match[1]));
         *_ignoreFirstLine = getMatchingString(input,&match[1]);
     }
     if(regexec(&reegexRecycle, input, 2, match, 0) == 0){
-       // printMatchingString(input,&match[1]);
       //  printf("%s\n",getMatchingString(input,&match[1]));
         *_recycle = getMatchingString(input,&match[1]);
     }
     if(regexec(&reegexVariables, input, 2, match, 0) == 0){
-        //printMatchingString(input,&match[1]);
       //  printf("%s\n",getMatchingString(input,&match[1]));
         *_variables = getMatchingString(input,&match[1]);
     }
-
+    //free the regex structures when done
+    regfree(&reegexVariables);
+    regfree(&reegexRecycle);
+    regfree(&reegexIgnoreFirstLine);
+    regfree(&reegexFilename);
 }
 
 char *replaceSubstring(const char *input, const char *pattern, const char *replacement) {
@@ -184,19 +194,22 @@ char *replaceSubstring(const char *input, const char *pattern, const char *repla
     // Compile the regex
     int regexCompileResult = regcomp(&regex, pattern, REG_EXTENDED);
  
+
     //T H E 'S T R M A T C H' R E S T - input
     //M Y R E P L A C E M E N T S T R - replacement
 
-    //T H E 'M Y R E P L A C E M E N T S T R' R E S T
+    //T H E 'M Y R E P L A C E M E N T S T R' R E S T - result
     if (regexCompileResult == 0) {
         // Calculate the size of the result string
-        if (regexec(&regex, input, 1, &match, 0) == 0) {
-            start = match.rm_so;
-            end = match.rm_eo;
-
-            resultSize += match.rm_eo - match.rm_so;
-        
+        if (regexec(&regex, input, 1, &match, 0) != 0) {
+            return NULL;
         }
+
+        start = match.rm_so;
+        end = match.rm_eo;
+
+        resultSize = end - start;
+            
         if(strlen(replacement)> resultSize)
             result = (char *) malloc(sizeof(char) * strlen(input) + strlen(replacement) - resultSize+1);
         finalLen = strlen(input) + strlen(replacement) - resultSize+1;
@@ -223,13 +236,12 @@ char *replaceSubstring(const char *input, const char *pattern, const char *repla
             }
         }
 
-        // Don't forget to free the regex structure when done
         regfree(&regex);
     } else {
         // Handle regex compilation error
         char errorBuffer[100];
         regerror(regexCompileResult, &regex, errorBuffer, sizeof(errorBuffer));
-        fprintf(stderr, "Regex compilation error: %s\n", errorBuffer);
+        fprintf(stdout, "Error: Regex compilation error: %s\n", errorBuffer);
     }
    // printf("\n\tresult%s\n",result);
     return result;
@@ -237,49 +249,56 @@ char *replaceSubstring(const char *input, const char *pattern, const char *repla
 
 int main (int argc, char** argv){
     if(argc <3){
-        printf("falta um parâmetro: arquivo JMX\nExemplo: './change-plugin temp.txt POC.jmx'\n");
+        fprintf(stdout,"Error:falta um parâmetro: arquivo JMX\nExemplo: './change-plugin temp.txt POC.jmx'\n");
         return 1;
     }
-    char * jmxFileName =argv[2];
-    char * tempFile = argv[1];
-
-    char * jmxFile = readFileToString(jmxFileName);
-    char * pluginRedisInput= readFileToString("pluginRedis.example");
-    char * auxPluginRedisOutput = (char *) malloc (sizeof(char)*strlen(pluginRedisInput));
-     
-    char * conteudoArquivo = readFileToString(tempFile);
-    if(conteudoArquivo==NULL)
+    char pluginRedisExampleFileName [30] = "pluginRedis.example";
+    char * jmxFileName = argv[2]; // get jmx filename from args
+    char * tempFileName = argv[1]; // get temporary filename containing csv element
+    char * jmxFileContent = readFileToString(jmxFileName);
+    char * pluginRedisExampleContent = readFileToString(pluginRedisExampleFileName);
+    char * tempFileContent = readFileToString(tempFileName);
+    char * auxPluginRedisOutput = (char *) malloc (sizeof(char)*strlen(pluginRedisExampleContent)+500);
+         
+    if(tempFileContent==NULL){
         return 1;
-
-    // Variable to store initial regex()
-    regex_t reegexCSV;
-
-    // Variable for return type
-    int value;
-    regmatch_t match[5];
-    // Creation of regEx
-
-    if(regcomp(&reegexCSV,"<CSVDataSet.{0,1000}?<\\/CSVDataSet>",REG_EXTENDED)!=0)
+    }
+    if(jmxFileContent==NULL){
         return 1;
-    
+    }
+    if(pluginRedisExampleContent==NULL){
+        return 1;
+    }
+
     int offset = 0;
-
-    int count = countMatches(&reegexCSV,conteudoArquivo,1,&match[0],&offset);
-    assert(count>0);
+    int count = countMatchesCSV(tempFileContent,&offset);
+    if(count <1){
+        fprintf(stdout, "Error: No matches found at file: '%s'\n",tempFileName);
+        return 1;
+    }
     
     int i =0;
     char *filename,*ignoreFirstLine,*recycle,*variables;
+    
     for(i=0;i<count;i++){
-        getVariables(conteudoArquivo+offset*i,&filename,&ignoreFirstLine,&recycle,&variables);
+        getVariables(tempFileContent+offset*i,&filename,&ignoreFirstLine,&recycle,&variables);
         removeFileExtension(filename);
         //printf("offset %d - %s,%s,%s,%s\n",offset,filename,ignoreFirstLine,recycle,variables);
-        sprintf(auxPluginRedisOutput, pluginRedisInput, recycle,filename,variables);
+        
+        //write formated pluginRedisExampleContent to auxPluginRedisOutput containing 'recycle,filename and variables' values
+        if(sprintf(auxPluginRedisOutput, pluginRedisExampleContent, recycle,filename,variables)<0){
+            fprintf(stdout, "Error: Could not format plugin jmx output\n");
+            return 1;
+        }
+
         //printf("%s\n",auxPluginRedisOutput);
 
-        jmxFile = replaceSubstring(jmxFile,"<CSVDataSet.{0,1000}?<\\/CSVDataSet>",auxPluginRedisOutput);
+        //replace matching <CSVDataset> elements with 'pluginRedisExampleContent' at jmxFileContent
+        jmxFileContent = replaceSubstring(jmxFileContent,"<CSVDataSet.{0,100}enabled=\"true\".{0,1000}?<\\/CSVDataSet>",auxPluginRedisOutput);
 
     }
-    saveJMX(jmxFileName,jmxFile);
+
+    saveJMX(jmxFileName,jmxFileContent);
     return 0;
 }
 
