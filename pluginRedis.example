@@ -1,0 +1,25 @@
+<kg.apc.jmeter.config.redis.RedisDataSet guiclass="TestBeanGUI" testclass="kg.apc.jmeter.config.redis.RedisDataSet" testname="jp@gc - Redis Data Set" enabled="true">
+          <boolProp name="blockWhenExhausted">false</boolProp>
+          <stringProp name="database">0</stringProp>
+          <stringProp name="delimiter">,</stringProp>
+          <stringProp name="host">127.0.0.1</stringProp>
+          <intProp name="maxActive">10</intProp>
+          <intProp name="maxIdle">10</intProp>
+          <longProp name="maxWait">30000</longProp>
+          <longProp name="minEvictableIdleTimeMillis">60000</longProp>
+          <intProp name="minIdle">1</intProp>
+          <intProp name="numTestsPerEvictionRun">0</intProp>
+          <stringProp name="password"></stringProp>
+          <stringProp name="port">6379</stringProp>
+          <boolProp name="recycleDataOnUse">%s</boolProp>
+          <intProp name="redisDataType">0</intProp>
+          <stringProp name="redisKey">%s</stringProp>
+          <longProp name="softMinEvictableIdleTimeMillis">60000</longProp>
+          <boolProp name="ssl">false</boolProp>
+          <boolProp name="testOnBorrow">false</boolProp>
+          <boolProp name="testOnReturn">false</boolProp>
+          <boolProp name="testWhileIdle">false</boolProp>
+          <longProp name="timeBetweenEvictionRunsMillis">30000</longProp>
+          <stringProp name="timeout">2000</stringProp>
+          <stringProp name="variableNames">%s</stringProp>
+        </kg.apc.jmeter.config.redis.RedisDataSet>
